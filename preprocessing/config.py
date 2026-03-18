@@ -1,0 +1,9 @@
+DATASET_NAME = "financial_phrasebank"
+DEFAULT_SUBSET = "sentences_allagree" # sentences_50agree, sentences_66agree, sentences_75agree
+DEFAULT_TEST_SIZE = 0.2
+DEFAULT_SEED = 42
+DEFAULT_LEMMATIZE = False
+DEFAULT_MAX_FEATURES = None
+DEFAULT_USE_NEGATION = True
+DEFAULT_NGRAM_RANGE = (1, 2)
+DEFAULT_OUTPUT_DIR = "data"
