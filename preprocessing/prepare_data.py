@@ -2,6 +2,10 @@ import argparse
 import json
 import pickle
 from pathlib import Path
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(REPO_ROOT))
 
 from sklearn.model_selection import train_test_split
 
@@ -15,8 +19,8 @@ from config import (
     DEFAULT_TEST_SIZE,
     DEFAULT_USE_NEGATION,
 )
-from load_data import load_phrasebank
-from preprocess_text import build_tfidf_pipeline
+from preprocessing.load_data import load_phrasebank
+from preprocessing.preprocess_text import build_tfidf_pipeline
 
 
 def main():
