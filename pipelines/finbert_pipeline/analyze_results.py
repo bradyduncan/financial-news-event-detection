@@ -17,7 +17,7 @@ def main():
         "--results-dir",
         type=str,
         default="pipelines/finbert_pipeline/results",
-        help="Directory containing results_summary_<subset>.csv and results_<subset>.json",
+        help="Base directory containing subset result folders",
     )
     parser.add_argument(
         "--subset",
@@ -31,8 +31,9 @@ def main():
     if not results_dir.is_absolute():
         results_dir = Path(__file__).resolve().parents[2] / results_dir
 
-    summary_path = results_dir / f"results_summary_{args.subset}.csv"
-    json_path = results_dir / f"results_{args.subset}.json"
+    results_dir = results_dir / args.subset
+    summary_path = results_dir / "results_summary.csv"
+    json_path = results_dir / "results.json"
 
     if not summary_path.exists():
         raise FileNotFoundError(f"Missing summary file: {summary_path}")

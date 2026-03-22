@@ -4,6 +4,8 @@ import pickle
 from pathlib import Path
 import sys
 
+import numpy as np
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(REPO_ROOT))
 
@@ -78,6 +80,14 @@ def main():
         if not out.is_absolute():
             out = repo_root / out
         out.mkdir(parents=True, exist_ok=True)
+        with (out / "train_texts.pkl").open("wb") as f:
+            pickle.dump(X_train, f)
+        with (out / "test_texts.pkl").open("wb") as f:
+            pickle.dump(X_test, f)
+        with (out / "train_labels.npy").open("wb") as f:
+            np.save(f, y_train)
+        with (out / "test_labels.npy").open("wb") as f:
+            np.save(f, y_test)
         with (out / "tfidf_pipeline.pkl").open("wb") as f:
             pickle.dump(pipeline, f)
         with (out / "train_tfidf.pkl").open("wb") as f:

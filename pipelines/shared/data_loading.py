@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import sys
+import pickle
 
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
@@ -19,7 +20,36 @@ def load_label_names(output_dir: Path):
     return None
 
 
-def get_splits(subset: str, test_size: float, seed: int):
+def load_saved_splits(output_dir: Path):
+    train_texts_path = output_dir / "train_texts.pkl"
+    test_texts_path = output_dir / "test_texts.pkl"
+    train_labels_path = output_dir / "train_labels.npy"
+    test_labels_path = output_dir / "test_labels.npy"
+
+    if not (
+        train_texts_path.exists()
+        and test_texts_path.exists()
+        and train_labels_path.exists()
+        and test_labels_path.exists()
+    ):
+        return None
+
+    with train_texts_path.open("rb") as f:
+        X_train = pickle.load(f)
+    with test_texts_path.open("rb") as f:
+        X_test = pickle.load(f)
+    y_train = np.load(train_labels_path)
+    y_test = np.load(test_labels_path)
+    return X_train, X_test, y_train, y_test
+
+
+def get_splits(subset: str, test_size: float, seed: int, output_dir: Path | None = None):
+    if output_dir is not None:
+        saved = load_saved_splits(output_dir)
+        if saved is not None:
+            X_train, X_test, y_train, y_test = saved
+            return X_train, X_test, np.array(y_train), np.array(y_test), None
+
     texts, labels, label_names = load_phrasebank(subset)
     if isinstance(labels[0], str):
         encoder = LabelEncoder()
