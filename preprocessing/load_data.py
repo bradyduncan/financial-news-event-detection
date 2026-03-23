@@ -1,9 +1,9 @@
 from datasets import load_dataset
 
-from config import DATASET_NAME
+from preprocessing.config import DATASET_NAME
 
 def load_phrasebank(subset: str):
-    ds = load_dataset(DATASET_NAME, subset)
+    ds = load_dataset(DATASET_NAME, subset, trust_remote_code=True)
     if "train" in ds:
         data = ds["train"]
     else:
