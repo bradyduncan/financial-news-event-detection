@@ -6,10 +6,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preprocessing"))
 
-
-
-from load_data import load_phrasebank
-from preprocess_text import TOKEN_RE
+from preprocessing.load_data import load_phrasebank
+from preprocessing.preprocess_text import TOKEN_RE
 
 FINANCIAL_KEYWORDS = {
     "profit", "loss", "growth", "decline", "revenue", "earnings",
