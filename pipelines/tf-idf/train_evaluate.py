@@ -12,7 +12,7 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-# ── Path setup ─────────────────────────────────────────────────────
+"""Path setup """
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.append(str(REPO_ROOT))
 
@@ -26,7 +26,7 @@ from preprocessing.feature_engineering import combine_features, FEATURE_NAMES
 from pipelines.shared.data_loading import get_splits, load_label_names
 from pipelines.shared.evaluation import evaluate_model
 
-# ── Config ─────────────────────────────────────────────────────────
+"""Configuration """
 SUBSET = DEFAULT_SUBSET
 TEST_SIZE = DEFAULT_TEST_SIZE
 SEED = DEFAULT_SEED
@@ -38,7 +38,7 @@ if not OUTPUT_DIR.is_absolute():
 RESULTS_DIR = REPO_ROOT / "pipelines" / "tfidf_pipeline" / "results" / SUBSET
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Load data ──────────────────────────────────────────────────────
+"""Load label names and train/test splits (with caching)"""
 print("Loading label names...")
 label_names = load_label_names(OUTPUT_DIR)
 
@@ -55,7 +55,7 @@ print(f"Train size: {len(X_train_texts)}  Test size: {len(X_test_texts)}")
 print(f"Labels: {label_names}")
 print()
 
-# ── Load TF-IDF matrices ──────────────────────────────────────────
+"""Load precomputed TF-IDF matrices and pipeline (for feature names)"""
 print("Loading TF-IDF matrices...")
 with (OUTPUT_DIR / "train_tfidf.pkl").open("rb") as f:
     X_train_tfidf, _ = pickle.load(f)
@@ -64,7 +64,7 @@ with (OUTPUT_DIR / "test_tfidf.pkl").open("rb") as f:
 with (OUTPUT_DIR / "tfidf_pipeline.pkl").open("rb") as f:
     tfidf_pipeline = pickle.load(f)
 
-# ── Combine TF-IDF + handcrafted features ─────────────────────────
+"""Combine TF-IDF features with handcrafted features"""
 print("Combining TF-IDF with handcrafted features...")
 X_train = combine_features(X_train_tfidf, X_train_texts)
 X_test = combine_features(X_test_tfidf, X_test_texts)
@@ -73,7 +73,7 @@ print(f"Train shape: {X_train.shape}  Test shape: {X_test.shape}")
 print(f"TF-IDF features: {X_train_tfidf.shape[1]}  Handcrafted features: {len(FEATURE_NAMES)}")
 print()
 
-# ── Model definitions + hyperparameter grids ───────────────────────
+"""Model definitions and hyperparameters for grid search"""
 models = {
     "logistic_regression": {
         "model": LogisticRegression(
@@ -104,7 +104,7 @@ models = {
     },
 }
 
-# ── Cross-validation setup ─────────────────────────────────────────
+""""Cross-validation setup for hyperparameter tuning"""
 cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
 
 # ── Train and evaluate each model ─────────────────────────────────
@@ -129,7 +129,7 @@ for name, config in models.items():
     print(f"Best CV macro-F1: {grid.best_score_:.4f}")
     print()
 
-    # Evaluate using shared evaluation function
+    """Evaluate best model on test set"""
     metrics = evaluate_model(name, grid.best_estimator_, X_test, y_test, label_names)
 
     print(f"Test accuracy: {metrics['accuracy']:.4f}")
@@ -138,7 +138,7 @@ for name, config in models.items():
         print(f"Test ROC-AUC (OVR): {metrics['roc_auc_ovr']:.4f}")
     print()
 
-    # Print per-class metrics
+    """Per-class metrics"""
     for i, lbl in enumerate(label_names):
         p = metrics["per_class"]["precision"][i]
         r = metrics["per_class"]["recall"][i]
@@ -158,11 +158,11 @@ for name, config in models.items():
         "metrics": metrics,
     })
 
-    # Save trained model
+    """Save trained model for later analysis (e.g., feature importance)"""
     with (RESULTS_DIR / f"{name}_best.pkl").open("wb") as f:
         pickle.dump(grid.best_estimator_, f)
 
-# ── Feature importance (interpretability) ──────────────────────────
+"""Feature importance analysis for Logistic Regression (if available)"""
 print("=" * 60)
 print("TOP FEATURES (Logistic Regression coefficients)")
 print("=" * 60)
@@ -187,12 +187,12 @@ for i, label in enumerate(label_names):
     for idx in bottom_idx:
         print(f"  {all_feature_names[idx]:30s}  {coefs[idx]:+.4f}")
 
-# ── Save all results ───────────────────────────────────────────────
+"""Save results to JSON and CSV for later analysis"""
 results_path = RESULTS_DIR / "results.json"
 with results_path.open("w", encoding="utf-8") as f:
     json.dump(all_results, f, indent=2)
 
-# Save summary CSV (same format as Brady's finbert results)
+"""Save a simplified CSV summary for easy comparison across models"""
 flat_rows = []
 for model_entry in all_results["models"]:
     metrics = model_entry["metrics"]
@@ -204,7 +204,7 @@ for model_entry in all_results["models"]:
     })
 pd.DataFrame(flat_rows).to_csv(RESULTS_DIR / "results_summary.csv", index=False)
 
-# ── Summary ────────────────────────────────────────────────────────
+"""Summary of results"""
 print("\n" + "=" * 60)
 print("SUMMARY")
 print("=" * 60)
