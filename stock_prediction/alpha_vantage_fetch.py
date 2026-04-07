@@ -125,7 +125,6 @@ def fetch_news_windowed(
 
 def fetch_daily_prices(ticker: str, api_key: str, outputsize: str = "compact") -> dict:
     params = {
-        # TIME_SERIES_DAILY is a free Alpha Vantage endpoint.
         "function": "TIME_SERIES_DAILY",
         "symbol": ticker,
         "outputsize": outputsize,
@@ -164,7 +163,6 @@ def daily_prices_to_df(data: dict) -> pd.DataFrame:
                 "high": float(values.get("2. high", "nan")),
                 "low": float(values.get("3. low", "nan")),
                 "close": float(values.get("4. close", "nan")),
-                # TIME_SERIES_DAILY does not include adjusted close; mirror close.
                 "adjusted_close": float(values.get("4. close", "nan")),
                 "volume": float(values.get("5. volume", "nan")),
             }
