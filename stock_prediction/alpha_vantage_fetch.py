@@ -15,10 +15,11 @@ import pandas as pd
 
 BASE_URL = "https://www.alphavantage.co/query"
 DEFAULT_TICKERS = ["AAPL", "MSFT", "AMZN"]
-DEFAULT_OUTPUT_DIR = Path("data/alpha_vantage")
+DEFAULT_OUTPUT_DIR = Path("data/stock_prediction/alpha_vantage")
+NEWS_OUTPUT_PATH = Path("data/stock_prediction/alpha_vantage/news.json")
 
 
-def _require_api_key() -> str:
+def require_api_key() -> str:
     api_key = os.getenv("ALPHAVANTAGE_API_KEY")
     if not api_key:
         raise RuntimeError(
@@ -28,13 +29,15 @@ def _require_api_key() -> str:
     return api_key
 
 
-def _fetch_json(params: dict) -> dict:
+def fetch_json(params: dict) -> dict:
     url = f"{BASE_URL}?{urlencode(params)}"
-    with urlopen(url) as resp:  # nosec - URL is constructed from trusted base + params
+    # Alpha Vantage expects all params on the query string
+    with urlopen(url) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
-def _raise_if_error(data: dict, context: str) -> None:
+def raise_if_error(data: dict, context: str) -> None:
+    # Catch all common errors
     if "Error Message" in data:
         raise RuntimeError(f"Alpha Vantage error for {context}: {data['Error Message']}")
     if "Note" in data:
@@ -45,7 +48,8 @@ def _raise_if_error(data: dict, context: str) -> None:
         )
 
 
-def _has_rate_limit_or_error(data: dict) -> bool:
+def has_rate_limit_or_error(data: dict) -> bool:
+    # Prevent saving error over real data
     return any(key in data for key in ("Error Message", "Note", "Information"))
 
 
@@ -56,6 +60,7 @@ def fetch_news(
     limit: int,
     api_key: str,
 ) -> dict:
+    # NEWS_SENTIMENT can be premium for some keys
     params = {
         "function": "NEWS_SENTIMENT",
         "tickers": ",".join(tickers),
@@ -64,8 +69,8 @@ def fetch_news(
         "limit": limit,
         "apikey": api_key,
     }
-    data = _fetch_json(params)
-    _raise_if_error(data, "NEWS_SENTIMENT")
+    data = fetch_json(params)
+    raise_if_error(data, "NEWS_SENTIMENT")
     if "feed" not in data:
         raise RuntimeError("NEWS_SENTIMENT response missing 'feed' field.")
     return data
@@ -80,11 +85,13 @@ def fetch_news_windowed(
     api_key: str,
     sleep_seconds: float,
 ) -> dict:
+    # Window to keep requests small
     start_dt = datetime.strptime(start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(end_date, "%Y-%m-%d")
     if window_days <= 0:
         raise ValueError("--news-window-days must be >= 1")
 
+    # Aggregate results across windows and dedupe by URL/time
     combined = {
         "items": "0",
         "sentiment_score_definition": "",
@@ -117,7 +124,57 @@ def fetch_news_windowed(
             seen.add(key)
             combined["feed"].append(item)
 
+        # Save incrementally so partial results survive rate limits
+        combined["items"] = str(len(combined["feed"]))
+        existing = load_existing_news(NEWS_OUTPUT_PATH)
+        merged = merge_news(existing, combined)
+        save_json(merged, NEWS_OUTPUT_PATH)
+
         cur = window_end + timedelta(days=1)
+
+    combined["items"] = str(len(combined["feed"]))
+    return combined
+
+
+def fetch_news_per_ticker(
+    tickers: Iterable[str],
+    start_date: str,
+    end_date: str,
+    limit: int,
+    api_key: str,
+    sleep_seconds: float,
+) -> dict:
+    # One request per ticker, then dedupe by URL/time
+    time_from = datetime.strptime(start_date, "%Y-%m-%d").strftime("%Y%m%dT0000")
+    time_to = datetime.strptime(end_date, "%Y-%m-%d").strftime("%Y%m%dT2359")
+
+    combined = {
+        "items": "0",
+        "sentiment_score_definition": "",
+        "relevance_score_definition": "",
+        "feed": [],
+    }
+    seen = set()
+
+    for ticker in tickers:
+        time.sleep(sleep_seconds)
+        data = fetch_news([ticker], time_from, time_to, limit, api_key)
+
+        if not combined["sentiment_score_definition"]:
+            combined["sentiment_score_definition"] = data.get(
+                "sentiment_score_definition", ""
+            )
+        if not combined["relevance_score_definition"]:
+            combined["relevance_score_definition"] = data.get(
+                "relevance_score_definition", ""
+            )
+
+        for item in data.get("feed", []):
+            key = (item.get("url", ""), item.get("time_published", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            combined["feed"].append(item)
 
     combined["items"] = str(len(combined["feed"]))
     return combined
@@ -130,8 +187,8 @@ def fetch_daily_prices(ticker: str, api_key: str, outputsize: str = "compact") -
         "outputsize": outputsize,
         "apikey": api_key,
     }
-    data = _fetch_json(params)
-    _raise_if_error(data, f"TIME_SERIES_DAILY {ticker}")
+    data = fetch_json(params)
+    raise_if_error(data, f"TIME_SERIES_DAILY {ticker}")
     if "Time Series (Daily)" not in data:
         raise RuntimeError(
             f"TIME_SERIES_DAILY response missing 'Time Series (Daily)' for {ticker}"
@@ -140,7 +197,8 @@ def fetch_daily_prices(ticker: str, api_key: str, outputsize: str = "compact") -
 
 
 def save_json(data: dict, path: Path) -> None:
-    if path.exists() and _has_rate_limit_or_error(data):
+    # Avoid overwriting good data with error response
+    if path.exists() and has_rate_limit_or_error(data):
         raise RuntimeError(
             f"Refusing to overwrite {path} with an Alpha Vantage error/limit response."
         )
@@ -149,7 +207,38 @@ def save_json(data: dict, path: Path) -> None:
         json.dump(data, f, indent=2)
 
 
+def load_existing_news(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def merge_news(existing: dict | None, incoming: dict) -> dict:
+    if not existing:
+        return incoming
+    combined = {
+        "items": "0",
+        "sentiment_score_definition": existing.get("sentiment_score_definition", "")
+        or incoming.get("sentiment_score_definition", ""),
+        "relevance_score_definition": existing.get("relevance_score_definition", "")
+        or incoming.get("relevance_score_definition", ""),
+        "feed": [],
+    }
+    seen = set()
+    for source in (existing, incoming):
+        for item in source.get("feed", []):
+            key = (item.get("url", ""), item.get("time_published", ""))
+            if key in seen:
+                continue
+            seen.add(key)
+            combined["feed"].append(item)
+    combined["items"] = str(len(combined["feed"]))
+    return combined
+
+
 def daily_prices_to_df(data: dict) -> pd.DataFrame:
+    # Normalize the AV schema into a dataframe
     series = data.get("Time Series (Daily)")
     if not series:
         raise ValueError("Missing Time Series (Daily) in price response.")
@@ -177,6 +266,7 @@ def save_prices_csv(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ) -> None:
+    # Slice to requested date range before saving
     df = daily_prices_to_df(data)
     if start_date is not None:
         df = df[df["date"] >= start_date]
@@ -187,6 +277,7 @@ def save_prices_csv(
 
 
 def parse_date_arg(date_str: str) -> str:
+    # Match AV datetime format for news queries
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     return dt.strftime("%Y%m%dT0000")
 
@@ -214,42 +305,86 @@ def main() -> None:
         help="Window size in days for paginated news fetch (used with --fetch-news).",
     )
     parser.add_argument(
+        "--news-per-ticker",
+        action="store_true",
+        help="Fetch news with one request per ticker (max 50 items each).",
+    )
+    parser.add_argument(
         "--outputsize",
         choices=["compact", "full"],
         default="compact",
         help="Alpha Vantage output size. 'full' may require a premium plan.",
     )
+    parser.add_argument(
+        "--no-prices",
+        action="store_true",
+        help="Skip price downloads (news only).",
+    )
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--sleep-seconds", type=float, default=15.0)
     args = parser.parse_args()
 
-    api_key = _require_api_key()
+    api_key = require_api_key()
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if args.start_date is None or args.end_date is None:
         raise ValueError("Both --start-date and --end-date are required (YYYY-MM-DD).")
 
-    if args.fetch_news:
-        news = fetch_news_windowed(
-            tickers=args.tickers,
-            start_date=args.start_date,
-            end_date=args.end_date,
-            window_days=args.news_window_days,
-            limit=args.news_limit,
-            api_key=api_key,
-            sleep_seconds=args.sleep_seconds,
-        )
-        save_json(news, output_dir / "news.json")
-
+    # Estimate API calls before running 
     start_dt = datetime.strptime(args.start_date, "%Y-%m-%d")
     end_dt = datetime.strptime(args.end_date, "%Y-%m-%d")
+    total_days = (end_dt - start_dt).days + 1
+    if total_days <= 0:
+        raise ValueError("--end-date must be >= --start-date.")
+    news_windows = 0
+    if args.fetch_news:
+        if args.news_per_ticker:
+            news_windows = len(args.tickers)
+        else:
+            news_windows = (total_days + args.news_window_days - 1) // args.news_window_days
+    price_calls = 0 if args.no_prices else len(args.tickers)
+    est_calls = news_windows + price_calls
+    print(
+        f"Estimated Alpha Vantage calls: {est_calls} "
+        f"(news windows={news_windows}, price calls={price_calls})"
+    )
+    if est_calls > 25: # abort if it will exceed free tier limit
+        raise RuntimeError(
+            f"Estimated calls = {est_calls} exceeds 25. Aborting before any API requests."
+        )
 
-    for ticker in args.tickers:
-        time.sleep(args.sleep_seconds)
-        prices = fetch_daily_prices(ticker, api_key, outputsize=args.outputsize)
-        save_json(prices, output_dir / f"prices_{ticker}.json")
-        save_prices_csv(prices, output_dir / f"prices_{ticker}.csv", start_dt, end_dt)
+    if args.fetch_news:
+        if args.news_per_ticker:
+            news = fetch_news_per_ticker(
+                tickers=args.tickers,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                limit=args.news_limit,
+                api_key=api_key,
+                sleep_seconds=args.sleep_seconds,
+            )
+        else:
+            news = fetch_news_windowed(
+                tickers=args.tickers,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                window_days=args.news_window_days,
+                limit=args.news_limit,
+                api_key=api_key,
+                sleep_seconds=args.sleep_seconds,
+            )
+        # Always append into the canonical news file
+        existing = load_existing_news(NEWS_OUTPUT_PATH)
+        merged = merge_news(existing, news)
+        save_json(merged, NEWS_OUTPUT_PATH)
+
+    if not args.no_prices:
+        for ticker in args.tickers:
+            time.sleep(args.sleep_seconds)
+            prices = fetch_daily_prices(ticker, api_key, outputsize=args.outputsize)
+            save_json(prices, output_dir / f"prices_{ticker}.json")
+            save_prices_csv(prices, output_dir / f"prices_{ticker}.csv", start_dt, end_dt)
 
     if args.fetch_news:
         print(f"Saved news to {output_dir / 'news.json'}")

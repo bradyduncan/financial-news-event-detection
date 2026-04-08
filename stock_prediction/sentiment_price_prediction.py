@@ -9,6 +9,7 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
+import time
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(REPO_ROOT))
@@ -24,21 +25,17 @@ from pipelines.finbert_pipeline.embeddings import (
 )
 from stock_prediction.evaluator import evaluate_sentiment_signal, save_metrics
 from stock_prediction.sentiment_price_regressor import run_regressor
+from transformers import AutoModel, AutoTokenizer
+import requests
+import trafilatura
 
-
-try:
-    from transformers import AutoModel, AutoTokenizer
-except Exception as exc:
-    raise ImportError(
-        "transformers is required for FinBERT embeddings. "
-        "Install it with: pip install transformers"
-    ) from exc
-
-
+# Global vars
 DEFAULT_TICKERS_FILE = Path("data/stock_prediction/marketstack/tickers.txt")
 DEFAULT_OUTPUT_DIR = Path("data/stock_prediction/results")
 DEFAULT_CACHE_DIR = Path("data/finbert_embeddings")
+DEFAULT_TEXT_CACHE = Path("data/stock_prediction/gdelt/article_text_cache.json")
 
+# Possible references for each ticker
 TICKER_ALIASES = {
     "AAPL": ["apple"],
     "MSFT": ["microsoft"],
@@ -64,12 +61,12 @@ TICKER_ALIASES = {
 def load_news(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(
-            f"Missing news file: {path}. Run gdelt_fetch.py first to create it."
+            f"Missing news file: {path}"
         )
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
 
-
+# Tickers are the company IDs for market prices
 def load_tickers_from_file(path: Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(f"Missing tickers file: {path}")
@@ -84,6 +81,84 @@ def load_tickers_from_file(path: Path) -> list[str]:
     return tickers
 
 
+def load_text_cache(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_text_cache(path: Path, cache: dict[str, str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2)
+
+
+def fetch_article_text(url: str, timeout_seconds: float = 20.0) -> str:
+    if requests is None or trafilatura is None:
+        raise ImportError(
+            "trafilatura and requests are required for article text extraction. "
+            "Install with: pip install trafilatura requests"
+        )
+    downloaded = trafilatura.fetch_url(url)
+    if not downloaded:
+        # Fallback to requests for sites that block trafilatura's downloader.
+        headers = {"User-Agent": "sentiment-price/1.0"}
+        resp = requests.get(url, timeout=timeout_seconds, headers=headers)
+        resp.raise_for_status()
+        downloaded = resp.text
+    text = trafilatura.extract(
+        downloaded,
+        url=url,
+        include_comments=False,
+        include_tables=False,
+        favor_recall=True,
+    )
+    if not text:
+        return ""
+    return " ".join(text.split())
+
+
+def enrich_articles_with_text(
+    articles: pd.DataFrame,
+    cache_path: Path,
+    max_articles: int,
+    sleep_seconds: float,
+    min_text_chars: int,
+) -> pd.DataFrame:
+    cache = load_text_cache(cache_path)
+    urls = articles["url"].dropna().unique().tolist()
+    fetched = 0
+    updated_cache = False
+
+    for url in urls:
+        if not url or url in cache:
+            continue
+        if fetched >= max_articles:
+            break
+        try:
+            text = fetch_article_text(url)
+        except Exception:
+            text = ""
+        if text and len(text) >= min_text_chars:
+            cache[url] = text
+            updated_cache = True
+        fetched += 1
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+
+    if updated_cache:
+        save_text_cache(cache_path, cache)
+
+    def choose_text(row: pd.Series) -> str:
+        cached = cache.get(row.get("url", ""), "")
+        return cached if cached else row.get("text", "")
+
+    out = articles.copy()
+    out["text"] = out.apply(choose_text, axis=1)
+    return out
+
+
 def parse_gdelt_time(value: str) -> datetime:
     value = value.strip()
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%dT%H%M%SZ"):
@@ -94,7 +169,7 @@ def parse_gdelt_time(value: str) -> datetime:
     raise ValueError(f"Unsupported GDELT seendate format: {value}")
 
 
-def _passes_keyword_filter(text: str, keywords: list[str]) -> bool:
+def passes_keyword_filter(text: str, keywords: list[str]) -> bool:
     if not keywords:
         return True
     lower = text.lower()
@@ -128,7 +203,7 @@ def news_to_rows(
         time_published = parse_gdelt_time(seendate)
         url = item.get("url", "")
         full_text = title
-        if not _passes_keyword_filter(full_text, keywords):
+        if not passes_keyword_filter(full_text, keywords):
             continue
         rows.append(
             {
@@ -179,10 +254,10 @@ def compute_forward_return(
 ) -> float:
     # Entry is the first trading day strictly after publication
     future = prices.loc[prices["date"] > date]
-    if future.empty or horizon_days <= 0 or len(future) < horizon_days:
+    if future.empty or horizon_days <= 0 or len(future) <= horizon_days:
         return float("nan")
     entry_close = future.iloc[0]["adjusted_close"]
-    exit_close = future.iloc[horizon_days - 1]["adjusted_close"]
+    exit_close = future.iloc[horizon_days]["adjusted_close"]
     if pd.isna(entry_close) or pd.isna(exit_close):
         return float("nan")
     return float((exit_close - entry_close) / entry_close)
@@ -297,7 +372,7 @@ def build_daily_features(articles: pd.DataFrame) -> pd.DataFrame:
         .transform(lambda s: s.rolling(5).mean())
     )
 
-    # Sentiment dynamics: day-over-day change and acceleration
+    # Day-over-day change and acceleration
     daily["sentiment_change"] = (
         daily.groupby("ticker")["sentiment_score"]
         .transform(lambda s: s.diff())
@@ -322,7 +397,7 @@ def attach_forward_returns(
         ticker_prices = prices[ticker].sort_values("date")
         group = group.sort_values("published_date").copy()
 
-        # For each published_date, find the first trading day strictly after
+        # Find the first trading day strictly after each pub date
         returns = []
         bench = []
         for pub_date in group["published_date"]:
@@ -351,7 +426,7 @@ def run_classifier(
 ) -> None:
     """Binary classification: predict whether excess/forward return is positive."""
     from sklearn.model_selection import TimeSeriesSplit
-    from sklearn.metrics import accuracy_score, f1_score, classification_report
+    from sklearn.metrics import accuracy_score, f1_score
     import xgboost as xgb
 
     daily = daily.dropna(subset=[target_col]).copy()
@@ -382,7 +457,7 @@ def run_classifier(
     n_pos = (y == 1).sum()
     scale_pos_weight = n_neg / n_pos if n_pos > 0 else 1.0
 
-    tscv = TimeSeriesSplit(n_splits=5)
+    tscv = TimeSeriesSplit(n_splits=5) # time series split to avoid leakage
     accuracies, f1s = [], []
     for train_idx, test_idx in tscv.split(X):
         X_train, X_test = X[train_idx], X[test_idx]
@@ -408,7 +483,10 @@ def run_classifier(
         "per_fold_accuracy": [float(a) for a in accuracies],
         "per_fold_f1": [float(f) for f in f1s],
     }
-    print(f"Classification — Accuracy: {clf_metrics['mean_accuracy']:.4f}, F1: {clf_metrics['mean_f1']:.4f}")
+    print(
+        f"Classification - Accuracy: {clf_metrics['mean_accuracy']:.4f}, "
+        f"F1: {clf_metrics['mean_f1']:.4f}"
+    )
     save_metrics(clf_metrics, output_dir / "classification_eval.json")
     save_metrics(clf_metrics, output_dir / "classification_eval.csv")
 
@@ -460,6 +538,34 @@ def main() -> None:
         "--classify", action="store_true",
         help="Run binary direction classifier in addition to regression.",
     )
+    parser.add_argument(
+        "--no-article-text",
+        action="store_true",
+        help="Skip URL text extraction and use titles only.",
+    )
+    parser.add_argument(
+        "--text-cache",
+        default=str(DEFAULT_TEXT_CACHE),
+        help="Path to JSON cache for extracted article text.",
+    )
+    parser.add_argument(
+        "--max-articles",
+        type=int,
+        default=500,
+        help="Max number of new URLs to scrape per run.",
+    )
+    parser.add_argument(
+        "--scrape-sleep",
+        type=float,
+        default=0.5,
+        help="Seconds to sleep between URL fetches.",
+    )
+    parser.add_argument(
+        "--min-text-chars",
+        type=int,
+        default=200,
+        help="Minimum extracted text length to cache.",
+    )
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR))
     args = parser.parse_args()
 
@@ -473,6 +579,15 @@ def main() -> None:
     articles = news_to_rows(news, tickers, keywords=args.keywords)
     if articles.empty:
         raise ValueError("No articles found for the provided tickers.")
+
+    if not args.no_article_text:
+        articles = enrich_articles_with_text(
+            articles=articles,
+            cache_path=Path(args.text_cache),
+            max_articles=args.max_articles,
+            sleep_seconds=args.scrape_sleep,
+            min_text_chars=args.min_text_chars,
+        )
 
     prices = load_prices(prices_dir, tickers)
     benchmark_prices = load_benchmark_if_available(prices_dir, args.benchmark_ticker)
@@ -496,12 +611,12 @@ def main() -> None:
     proba = lr_model.predict_proba(news_embeddings)
     articles["sentiment_score"] = sentiment_score_from_proba(proba, label_names)
 
-    # Save article-level dataset (no return computation — daily level is canonical)
+    # Save article-level dataset 
     article_out = output_dir / "sentiment_articles.csv"
     articles.to_csv(article_out, index=False)
     print(f"Saved article-level sentiments to {article_out}")
 
-    # Build daily aggregated features
+    # Aggregate daily features
     daily = build_daily_features(articles)
     daily = attach_price_features(daily, prices)
 
@@ -514,7 +629,7 @@ def main() -> None:
     if args.min_abs_sentiment > 0:
         daily = daily[daily["sentiment_score"].abs() >= args.min_abs_sentiment]
 
-    # Attach forward returns at the daily level
+    # Forward returns - daily level
     daily = attach_forward_returns(daily, prices, benchmark_prices, args.horizon_days)
 
     daily_out = output_dir / "sentiment_price_daily_returns.csv"
@@ -531,7 +646,7 @@ def main() -> None:
     save_metrics(daily_metrics, output_dir / "sentiment_price_daily_eval.json")
     save_metrics(daily_metrics, output_dir / "sentiment_price_daily_eval.csv")
 
-    # Regression
+    # Regression for forward returns
     run_regressor(
         daily=daily,
         output_dir=output_dir,
@@ -540,7 +655,7 @@ def main() -> None:
         target_col=target_col,
     )
 
-    # Classification (optional)
+    # Classification
     if args.classify:
         run_classifier(
             daily=daily,
