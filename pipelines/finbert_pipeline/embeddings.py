@@ -14,6 +14,7 @@ def compute_embeddings(
     batch_size: int,
     max_length: int,
 ):
+    # Use the CLS token embedding as a sentence vector
     embeddings = []
     for start in range(0, len(texts), batch_size):
         batch_texts = texts[start : start + batch_size]
@@ -40,6 +41,7 @@ def load_or_create_embeddings(
     max_length: int,
     expected_len: int | None = None,
 ):
+    # Reuse cached embeddings when the expected size matches
     if cache_path.exists():
         cached = np.load(cache_path)
         if expected_len is None or cached.shape[0] == expected_len:

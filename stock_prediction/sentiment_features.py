@@ -20,6 +20,7 @@ def add_continuous_sentiment_score(
 
     proba should align with the rows of articles and the order of label_names.
     """
+    # Keep this pure so it is easy to test and reuse.
     scores = sentiment_score_from_proba(
         proba, label_names=label_names, label_score_map=label_score_map
     )

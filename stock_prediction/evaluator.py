@@ -9,6 +9,7 @@ import pandas as pd
 def evaluate_sentiment_signal(
     df: pd.DataFrame, score_col: str, target_col: str
 ) -> dict[str, float]:
+    # Simple correlation + directional accuracy summary for a signal column
     data = df[[score_col, target_col]].dropna()
     if data.empty:
         return {
@@ -38,6 +39,7 @@ def evaluate_sentiment_signal(
 
 
 def save_metrics(metrics: dict[str, float], path: Path) -> None:
+    # Write a metrics file in json or csv
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix.lower() == ".json":
         with path.open("w", encoding="utf-8") as f:

@@ -18,7 +18,7 @@ DEFAULT_OUTPUT_DIR = Path("data/stock_prediction/marketstack")
 MAX_REQUESTS = 88
 
 
-def _require_api_key() -> str:
+def require_api_key() -> str:
     api_key = os.getenv("MARKETSTACK_API_KEY")
     if not api_key:
         raise RuntimeError(
@@ -28,7 +28,7 @@ def _require_api_key() -> str:
     return api_key
 
 
-def _fetch_json(params: dict, timeout_seconds: float) -> dict:
+def fetch_json(params: dict, timeout_seconds: float) -> dict:
     url = f"{BASE_URL}?{urlencode(params)}"
     req = Request(url, headers={"User-Agent": "marketstack-fetch/1.0"})
     with urlopen(req, timeout=timeout_seconds) as resp:  # nosec - URL is constructed from trusted base + params
@@ -55,7 +55,7 @@ def fetch_eod_prices(
             "limit": limit,
             "offset": offset,
         }
-        payload = _fetch_json(params, timeout_seconds=timeout_seconds)
+        payload = fetch_json(params, timeout_seconds=timeout_seconds)
         batch = payload.get("data", [])
         data.extend(batch)
         if len(batch) < limit:
@@ -67,6 +67,7 @@ def fetch_eod_prices(
 def estimate_requests(
     start_date: str, end_date: str, num_tickers: int, limit: int
 ) -> int:
+    # Rough request count so we can bail out before hitting quotas.
     start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
     end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
     if end_dt < start_dt:
@@ -86,6 +87,7 @@ def estimate_requests(
 
 
 def save_prices(prices: list[dict], output_dir: Path) -> None:
+    # Write one CSV per symbol with the columns the pipeline expects.
     output_dir.mkdir(parents=True, exist_ok=True)
     by_symbol: dict[str, list[dict]] = {}
     for row in prices:
@@ -134,7 +136,7 @@ def main() -> None:
     datetime.strptime(args.start_date, "%Y-%m-%d")
     datetime.strptime(args.end_date, "%Y-%m-%d")
 
-    api_key = _require_api_key()
+    api_key = require_api_key()
     output_dir = Path(args.output_dir)
 
     estimated = estimate_requests(

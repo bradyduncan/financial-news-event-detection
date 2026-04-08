@@ -27,6 +27,7 @@ def main():
     )
     args = parser.parse_args()
 
+    # fix for results directory issue
     results_dir = Path(args.results_dir)
     if not results_dir.is_absolute():
         results_dir = Path(__file__).resolve().parents[2] / results_dir
@@ -40,6 +41,7 @@ def main():
     if not json_path.exists():
         raise FileNotFoundError(f"Missing JSON file: {json_path}")
 
+    # Load and print summary metrics
     summary = pd.read_csv(summary_path)
     print("Results Summary")
     print(summary.to_string(index=False))
@@ -47,6 +49,7 @@ def main():
     with json_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
+    # Select best model by macro F1
     print("\nBest by macro_f1")
     best = summary.sort_values("macro_f1", ascending=False).iloc[0]
     print(best.to_string())

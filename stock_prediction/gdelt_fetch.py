@@ -12,35 +12,51 @@ from urllib.error import URLError
 
 
 BASE_URL = "https://api.gdeltproject.org/api/v2/doc/doc"
-DEFAULT_TICKERS = ["AAPL", "AMZN", "MSFT", "ROKU", "ETSY", "UPST"]
+DEFAULT_TICKERS = [
+    "AAPL", "MSFT", "AMZN", "GOOGL", "META", "NVDA",
+    "JPM", "JNJ", "TSLA", "AMD", "QCOM", "SHOP",
+    "ROKU", "ETSY", "UPST", "FSLY", "RBLX",
+]
 DEFAULT_OUTPUT_DIR = Path("data/gdelt")
 PROGRESS_FILENAME = "gdelt_progress.json"
 
+# Simple name variants to catch common headline phrasing.
+TICKER_SEARCH_TERMS = {
+    "AAPL": ["AAPL", "Apple"],
+    "MSFT": ["MSFT", "Microsoft"],
+    "AMZN": ["AMZN", "Amazon"],
+    "GOOGL": ["GOOGL", "Google", "Alphabet"],
+    "META": ["META", "Meta Platforms", "Facebook"],
+    "NVDA": ["NVDA", "Nvidia"],
+    "JPM": ["JPM", "JPMorgan", "JP Morgan"],
+    "JNJ": ["JNJ", "Johnson & Johnson"],
+    "TSLA": ["TSLA", "Tesla"],
+    "AMD": ["AMD", "Advanced Micro Devices"],
+    "QCOM": ["QCOM", "Qualcomm"],
+    "SHOP": ["SHOP", "Shopify"],
+    "ROKU": ["ROKU", "Roku"],
+    "ETSY": ["ETSY", "Etsy"],
+    "UPST": ["UPST", "Upstart"],
+    "FSLY": ["FSLY", "Fastly"],
+    "RBLX": ["RBLX", "Roblox"],
+}
 
-def _fetch_json(params: dict, timeout_seconds: float) -> dict:
+
+def fetch_json(params: dict, timeout_seconds: float) -> dict:
     url = f"{BASE_URL}?{urlencode(params)}"
     req = Request(url, headers={"User-Agent": "gdelt-fetch/1.0"})
-    with urlopen(req, timeout=timeout_seconds) as resp:  # nosec - URL is constructed from trusted base + params
+    with urlopen(req, timeout=timeout_seconds) as resp:  # nosec
         raw = resp.read().decode("utf-8")
         if not raw.strip():
             raise ValueError("Empty response body")
         return json.loads(raw)
 
 
-def _default_terms_for_ticker(ticker: str) -> list[str]:
-    mapping = {
-        "AAPL": ["AAPL", "Apple"],
-        "AMZN": ["AMZN", "Amazon"],
-        "MSFT": ["MSFT", "Microsoft"],
-        "ROKU": ["ROKU", "Roku"],
-        "ETSY": ["ETSY", "Etsy"],
-        "UPST": ["UPST", "Upstart"],
-        "RBLX": ["RBLX", "Roblox"],
-    }
-    return mapping.get(ticker.upper(), [ticker.upper()])
+def default_terms_for_ticker(ticker: str) -> list[str]:
+    return TICKER_SEARCH_TERMS.get(ticker.upper(), [ticker.upper()])
 
 
-def _build_query(terms: Iterable[str]) -> str:
+def build_query(terms: Iterable[str]) -> str:
     parts = []
     for term in terms:
         term = term.strip()
@@ -55,11 +71,11 @@ def _build_query(terms: Iterable[str]) -> str:
     return "(" + " OR ".join(parts) + ")"
 
 
-def _parse_date(date_str: str) -> datetime:
+def parse_date(date_str: str) -> datetime:
     return datetime.strptime(date_str, "%Y-%m-%d")
 
 
-def _fmt_dt(dt: datetime) -> str:
+def fmt_dt(dt: datetime) -> str:
     return dt.strftime("%Y%m%d%H%M%S")
 
 
@@ -77,13 +93,13 @@ def fetch_gdelt_articles(
         "mode": "artlist",
         "format": "json",
         "maxrecords": maxrecords,
-        "startdatetime": _fmt_dt(start_dt),
-        "enddatetime": _fmt_dt(end_dt),
+        "startdatetime": fmt_dt(start_dt),
+        "enddatetime": fmt_dt(end_dt),
     }
     attempt = 0
     while True:
         try:
-            data = _fetch_json(params, timeout_seconds=timeout_seconds)
+            data = fetch_json(params, timeout_seconds=timeout_seconds)
             return data.get("articles", [])
         except (URLError, TimeoutError, json.JSONDecodeError, ValueError) as exc:
             attempt += 1
@@ -94,7 +110,7 @@ def fetch_gdelt_articles(
             time.sleep(backoff_seconds * attempt)
 
 
-def _matches_terms(text: str, terms: Iterable[str]) -> bool:
+def matches_terms(text: str, terms: Iterable[str]) -> bool:
     lower = text.lower()
     for term in terms:
         if term.lower() in lower:
@@ -114,13 +130,14 @@ def fetch_windowed_news(
     backoff_seconds: float,
     output_dir: Path,
 ) -> dict:
-    start_dt = _parse_date(start_date)
-    end_dt = _parse_date(end_date)
+    start_dt = parse_date(start_date)
+    end_dt = parse_date(end_date)
     if window_days <= 0:
         raise ValueError("--window-days must be >= 1")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     news_path = output_dir / "news.json"
+    # Resume from the last saved window if a prior run was interrupted.
     progress = load_progress(output_dir)
 
     if news_path.exists():
@@ -142,7 +159,7 @@ def fetch_windowed_news(
         resume_date = progress.get("current_date")
         resume_index = int(progress.get("next_ticker_index", 0))
 
-    cur = _parse_date(resume_date) if resume_date else start_dt
+    cur = parse_date(resume_date) if resume_date else start_dt
     if cur < start_dt:
         cur = start_dt
         resume_date = None
@@ -160,8 +177,8 @@ def fetch_windowed_news(
         for idx, ticker in enumerate(tickers_list):
             if idx < skip_until:
                 continue
-            terms = _default_terms_for_ticker(ticker)
-            query = _build_query(terms)
+            terms = default_terms_for_ticker(ticker)
+            query = build_query(terms)
             try:
                 articles = fetch_gdelt_articles(
                     query,
@@ -173,7 +190,7 @@ def fetch_windowed_news(
                     backoff_seconds,
                 )
             except RuntimeError as exc:
-                # Save partial results and exit gracefully on repeated failures.
+                # Keep partial results so a later run can pick up where it stopped.
                 combined["items"] = str(len(combined["feed"]))
                 save_json(combined, news_path)
                 save_progress(output_dir, cur.strftime("%Y-%m-%d"), idx)
@@ -184,7 +201,7 @@ def fetch_windowed_news(
                 url = item.get("url", "")
                 if not title and not url:
                     continue
-                if not _matches_terms(f"{title} {url}", terms):
+                if not matches_terms(f"{title} {url}", terms):
                     continue
 
                 key = (url, item.get("seendate", ""))
@@ -208,7 +225,6 @@ def fetch_windowed_news(
             combined["items"] = str(len(combined["feed"]))
             save_json(combined, news_path)
             save_progress(output_dir, cur.strftime("%Y-%m-%d"), idx + 1)
-        # Finished all tickers for this window.
         save_progress(output_dir, (window_end + timedelta(days=1)).strftime("%Y-%m-%d"), 0)
         cur = window_end + timedelta(days=1)
 

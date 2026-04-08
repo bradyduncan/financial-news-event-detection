@@ -52,6 +52,7 @@ def main():
     )
     args = parser.parse_args()
 
+    # fix path issue
     output_dir = Path(args.output_dir)
     if not output_dir.is_absolute():
         output_dir = REPO_ROOT / output_dir
@@ -66,6 +67,7 @@ def main():
         results_dir = REPO_ROOT / results_dir
     results_dir = results_dir / args.subset
 
+    # Load labels for stability across runs
     label_names = load_label_names(output_dir)
     print("Loading train/test splits")
     X_train_texts, X_test_texts, y_train, y_test, dataset_label_names = get_splits(
@@ -101,10 +103,11 @@ def main():
         max_length=args.max_length,
         expected_len=len(X_test_texts),
     )
-    print("Embeddings ready.")
+    print("Embeddings ready")
 
     results = {"dataset": args.subset, "models": []}
 
+    # Normalize model names so CLI input is forgiving
     selected = set([m.lower() for m in args.models])
     if "lr" in selected:
         print("Training Logistic Regression")
@@ -158,6 +161,8 @@ def main():
             )
 
     print("Saving results")
+    
+    # Add all results to a results folder
     results_dir.mkdir(parents=True, exist_ok=True)
     results_path = results_dir / "results.json"
     with results_path.open("w", encoding="utf-8") as f:

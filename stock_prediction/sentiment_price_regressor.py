@@ -22,6 +22,7 @@ def run_regressor(
     use_weighted_sentiment: bool = False,
     target_col: str = "next_day_return",
 ) -> None:
+    # Simple time-ordered train/test split for return regression.
     output_dir.mkdir(parents=True, exist_ok=True)
 
     score_col = (

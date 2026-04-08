@@ -8,6 +8,7 @@ from sklearn.metrics import (
 
 
 def evaluate_model(name, estimator, X_test, y_test, label_names):
+    # Classification report
     y_pred = estimator.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(
@@ -18,6 +19,7 @@ def evaluate_model(name, estimator, X_test, y_test, label_names):
     )[2]
     cm = confusion_matrix(y_test, y_pred)
 
+    # Use probabilistic scores when available for ROC AUC
     y_score = None
     if hasattr(estimator, "predict_proba"):
         y_score = estimator.predict_proba(X_test)
@@ -39,6 +41,7 @@ def evaluate_model(name, estimator, X_test, y_test, label_names):
         zero_division=0,
     )
 
+    # Pack metrics to save downstream
     metrics = {
         "model": name,
         "accuracy": accuracy,
