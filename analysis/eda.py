@@ -26,9 +26,12 @@ FINANCIAL_KEYWORDS = {
     "debt", "sales", "cost", "income", "expense", "deficit", "surplus",
 }
 
-"""Print count and percentage per class."""
+
 
 def label_distribution(labels, label_names):
+    """
+    Print count and percentage per class.
+    """
 
     counts = Counter(labels)
     total = len(labels)
@@ -43,8 +46,10 @@ def label_distribution(labels, label_names):
     print(f"  {'TOTAL':>10s}: {total:5d}")
     print()
 
-"""Print word-count statistics per class."""
 def sentence_length_stats(texts, labels, label_names):
+    """
+    Print word-count statistics per class.
+    """
 
     from collections import defaultdict
 
@@ -67,9 +72,12 @@ def sentence_length_stats(texts, labels, label_names):
         )
     print()
 
-"""Print the most common words per class after lowercasing."""
+
 
 def top_words_per_class(texts, labels, label_names, top_n=15):
+    """
+    Print the most common words per class after lowercasing.
+    """
 
     from collections import defaultdict
 
@@ -90,9 +98,11 @@ def top_words_per_class(texts, labels, label_names, top_n=15):
 
 
 
-"""Check how often financial keywords appear per class."""
 
 def financial_keyword_analysis(texts, labels, label_names):
+    """
+    Check how often financial keywords appear per class.
+    """
 
     from collections import defaultdict
 
@@ -119,9 +129,11 @@ def financial_keyword_analysis(texts, labels, label_names):
     print()
 
 
-"""Count sentences containing numbers or percentages per class."""
 
 def number_percentage_analysis(texts, labels, label_names):
+    """
+    Count sentences containing numbers or percentages per class.
+    """
 
     import re
 
@@ -155,9 +167,11 @@ def number_percentage_analysis(texts, labels, label_names):
     print()
 
 
-"""Print a few example sentences per class."""
 
 def sample_sentences(texts, labels, label_names, n=3):
+    """
+    Print a few example sentences per class.
+    """
 
     from collections import defaultdict
 

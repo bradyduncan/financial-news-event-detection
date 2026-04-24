@@ -198,4 +198,20 @@ python analysis/generate_dashboard.py
 Open `analysis/dashboard_charts/dashboard.html` in any browser. No server required.
 
 ---
+## Quick Demo
 
+
+To run the demo, first prepare data and train the models for the chosen subset:
+
+```bash
+python preprocessing/prepare_data.py --subset sentences_75agree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_75agree
+```
+
+Then run the demo:
+
+```bash
+python demo.py --subset sentences_75agree
+```
+
+This loads pre-saved results and models — no retraining required. It displays dataset statistics, all three model results, feature importance, and runs live predictions on sample financial sentences.
