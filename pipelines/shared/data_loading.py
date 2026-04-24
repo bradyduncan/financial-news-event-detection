@@ -13,6 +13,7 @@ from preprocessing.load_data import load_phrasebank
 
 
 def load_label_names(output_dir: Path):
+    # Use saved label order when available
     label_path = output_dir / "label_names.json"
     if label_path.exists():
         with label_path.open("r", encoding="utf-8") as f:
@@ -21,6 +22,7 @@ def load_label_names(output_dir: Path):
 
 
 def load_saved_splits(output_dir: Path):
+    # Load cached train test splits if present
     train_texts_path = output_dir / "train_texts.pkl"
     test_texts_path = output_dir / "test_texts.pkl"
     train_labels_path = output_dir / "train_labels.npy"
@@ -44,6 +46,7 @@ def load_saved_splits(output_dir: Path):
 
 
 def get_splits(subset: str, test_size: float, seed: int, output_dir: Path | None = None):
+    # Prefer cached splits for reproducibility
     if output_dir is not None:
         saved = load_saved_splits(output_dir)
         if saved is not None:

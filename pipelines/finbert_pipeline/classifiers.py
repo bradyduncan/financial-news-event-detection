@@ -6,10 +6,12 @@ try:
     from xgboost import XGBClassifier
     HAS_XGBOOST = True
 except Exception:
+    # Run without xgboost for runtime reasons
     HAS_XGBOOST = False
 
 
 def run_grid_search(model, param_grid, X_train, y_train, seed):
+    # Shared CV helper
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
     grid = GridSearchCV(
         model,
@@ -24,6 +26,7 @@ def run_grid_search(model, param_grid, X_train, y_train, seed):
 
 
 def train_logistic_regression(X_train, y_train, seed):
+    # Train baseline LR with grid search
     model = LogisticRegression(
         max_iter=1000,
         solver="lbfgs",
@@ -34,15 +37,18 @@ def train_logistic_regression(X_train, y_train, seed):
 
 
 def train_linear_svm(X_train, y_train, seed):
+    # Linear SVM with grid search
     model = LinearSVC(random_state=seed)
     grid = {"C": [0.1, 1.0, 10.0]}
     return run_grid_search(model, grid, X_train, y_train, seed)
 
 
 def train_xgboost(X_train, y_train, seed):
+    # Return None when xgboost is unavailable
     if not HAS_XGBOOST:
         return None, None, None
     num_classes = len(set(y_train))
+    # XGBoost with grid search 
     model = XGBClassifier(
         objective="multi:softprob",
         num_class=num_classes,
