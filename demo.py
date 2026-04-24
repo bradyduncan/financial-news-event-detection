@@ -66,13 +66,6 @@ SAMPLE_SENTENCES = [
 ]
 
 
-def section_header(title):
-    # Print a formatted section header to separate demo steps.
-    print("\n" + "=" * 65)
-    print(f"  {title}")
-    print("=" * 65)
-
-
 def get_feature_name(all_feature_names, idx):
     # Safely retrieve a feature name by index, returning a fallback if out of range.
     if idx < len(all_feature_names):
@@ -81,14 +74,12 @@ def get_feature_name(all_feature_names, idx):
 
 
 def main():
-    print("=" * 65)
-    print("  FINANCIAL NEWS SENTIMENT ANALYSIS — TF-IDF BASELINE DEMO")
-    print("  CS 6120 NLP — Kirtan Patel | Brady Duncan")
-    print("=" * 65)
+    print("FINANCIAL NEWS SENTIMENT ANALYSIS — TF-IDF BASELINE DEMO")
+    print("CS 6120 NLP — Kirtan Patel | Brady Duncan\n")
 
     # Load dataset and display label distribution
 
-    section_header("STEP 1: Dataset Overview")
+    print("STEP 1: Dataset Overview:")
     print(f"Loading PhraseBank subset: {SUBSET}")
     texts, labels, label_names = load_phrasebank(SUBSET)
     if label_names is None:
@@ -108,7 +99,7 @@ def main():
 
     # EDA highlights — sentence length and number presence per class
 
-    section_header("STEP 2: EDA Highlights")
+    print("\nSTEP 2: EDA Highlights:")
 
     import re
     from collections import defaultdict
@@ -136,7 +127,7 @@ def main():
 
     #  Load pre-saved results from results.json
 
-    section_header("STEP 3: Model Performance (from saved results)")
+    print("\nSTEP 3: Model Performance (from saved results):")
 
     results_path = RESULTS_DIR / "results.json"
     if not results_path.exists():
@@ -148,7 +139,7 @@ def main():
     with results_path.open("r", encoding="utf-8") as f:
         all_results = json.load(f)
 
-    """Display summary table of all models"""
+    # Display summary table of all models
 
     print(f"\n{'Model':<25s} {'CV F1':>8s} {'Test F1':>9s} {'Accuracy':>10s} {'ROC-AUC':>9s}")
     print("-" * 65)
@@ -195,7 +186,7 @@ def main():
 
     # Feature importance from pre-saved Logistic Regression model
 
-    section_header("STEP 4: Interpretability — Top LR Features")
+    print("\nSTEP 4: Interpretability — Top LR Features:")
 
     lr_path = RESULTS_DIR / "logistic_regression_best.pkl"
     tfidf_path = OUTPUT_DIR / "tfidf_pipeline.pkl"
@@ -241,7 +232,7 @@ def main():
 
     # Live prediction on sample financial sentences
 
-    section_header("STEP 5: Live Predictions on Sample Sentences")
+    print("\nSTEP 5: Live Predictions on Sample Sentences:")
 
     if not lr_path.exists() or not tfidf_path.exists():
         print("Saved model artifacts not found. Skipping live predictions.")
@@ -290,7 +281,7 @@ def main():
 
     # Summary
 
-    section_header("DEMO COMPLETE")
+    print("\nDEMO COMPLETE:")
     print(f"Dataset: {SUBSET} ({total} sentences)")
     print(f"Best model: {best_name} (Macro-F1: {best_f1:.4f})")
     print(f"Handcrafted features: {len(FEATURE_NAMES)} ({', '.join(FEATURE_NAMES)})")

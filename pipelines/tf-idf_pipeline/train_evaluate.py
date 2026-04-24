@@ -127,9 +127,7 @@ Using a dictionary to store results for each model, including best hyperparamete
 all_results = {"dataset": SUBSET, "models": []}
 
 for name, config in models.items():
-    print("=" * 60)
-    print(f"Training: {name}")
-    print("=" * 60)
+    print(f"\nTraining: {name}")
 
     grid = GridSearchCV(
         estimator=config["model"],
@@ -179,9 +177,7 @@ for name, config in models.items():
         pickle.dump(grid.best_estimator_, f)
 
 """Feature importance analysis for Logistic Regression (if available)"""
-print("=" * 60)
-print("TOP FEATURES (Logistic Regression coefficients)")
-print("=" * 60)
+print("\nTOP FEATURES (Logistic Regression coefficients):")
 
 with (RESULTS_DIR / "logistic_regression_best.pkl").open("rb") as f:
     lr = pickle.load(f)
@@ -221,9 +217,8 @@ for model_entry in all_results["models"]:
 pd.DataFrame(flat_rows).to_csv(RESULTS_DIR / "results_summary.csv", index=False)
 
 """Summary of results"""
-print("\n" + "=" * 60)
-print("SUMMARY")
-print("=" * 60)
+print("\nSUMMARY:")
+
 for entry in all_results["models"]:
     m = entry["metrics"]
     print(
