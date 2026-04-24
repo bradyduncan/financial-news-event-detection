@@ -1,5 +1,6 @@
 """Train and evaluate TF-IDF + Classical ML baseline models."""
 
+import argparse
 import json
 import pickle
 import sys
@@ -26,12 +27,20 @@ from preprocessing.feature_engineering import combine_features, FEATURE_NAMES
 from pipelines.shared.data_loading import get_splits, load_label_names
 from pipelines.shared.evaluation import evaluate_model
 
-"""Configuration """
-SUBSET = DEFAULT_SUBSET
-TEST_SIZE = DEFAULT_TEST_SIZE
-SEED = DEFAULT_SEED
+"""Command line arguments"""
+parser = argparse.ArgumentParser(description="Train TF-IDF + Classical ML baseline models.")
+parser.add_argument("--subset", type=str, default=DEFAULT_SUBSET)
+parser.add_argument("--test-size", type=float, default=DEFAULT_TEST_SIZE)
+parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
+parser.add_argument("--output-dir", type=str, default=DEFAULT_OUTPUT_DIR)
+args = parser.parse_args()
 
-OUTPUT_DIR = Path(DEFAULT_OUTPUT_DIR)
+"""Configuration """
+SUBSET = args.subset
+TEST_SIZE = args.test_size
+SEED = args.seed
+
+OUTPUT_DIR = Path(args.output_dir)
 if not OUTPUT_DIR.is_absolute():
     OUTPUT_DIR = REPO_ROOT / OUTPUT_DIR
 
@@ -126,16 +135,16 @@ for name, config in models.items():
     grid.fit(X_train, y_train)
 
     print(f"Best params: {grid.best_params_}")
-    print(f"Best CV macro-F1: {grid.best_score_:.4f}")
+    print(f"Best CV macro-F1: {grid.best_score_:.2f}")
     print()
 
     """Evaluate best model on test set"""
     metrics = evaluate_model(name, grid.best_estimator_, X_test, y_test, label_names)
 
-    print(f"Test accuracy: {metrics['accuracy']:.4f}")
-    print(f"Test macro-F1: {metrics['macro_f1']:.4f}")
+    print(f"Test accuracy: {metrics['accuracy']:.2f}")
+    print(f"Test macro-F1: {metrics['macro_f1']:.2f}")
     if metrics["roc_auc_ovr"] is not None:
-        print(f"Test ROC-AUC (OVR): {metrics['roc_auc_ovr']:.4f}")
+        print(f"Test ROC-AUC (OVR): {metrics['roc_auc_ovr']:.2f}")
     print()
 
     """Per-class metrics"""
@@ -143,7 +152,7 @@ for name, config in models.items():
         p = metrics["per_class"]["precision"][i]
         r = metrics["per_class"]["recall"][i]
         f = metrics["per_class"]["f1"][i]
-        print(f"  {lbl:>10s}:  precision={p:.3f}  recall={r:.3f}  f1={f:.3f}")
+        print(f"  {lbl:>10s}:  precision={p:.2f}  recall={r:.2f}  f1={f:.2f}")
     print()
 
     print("Confusion Matrix:")
@@ -212,9 +221,9 @@ for entry in all_results["models"]:
     m = entry["metrics"]
     print(
         f"  {entry['name']:25s}  "
-        f"CV F1={entry['cv_macro_f1']:.4f}  "
-        f"Test F1={m['macro_f1']:.4f}  "
-        f"Accuracy={m['accuracy']:.4f}"
+        f"CV F1={entry['cv_macro_f1']:.2f}  "
+        f"Test F1={m['macro_f1']:.2f}  "
+        f"Accuracy={m['accuracy']:.2f}"
     )
 
 print(f"\nResults saved to: {RESULTS_DIR}")
