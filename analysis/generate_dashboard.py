@@ -1,9 +1,9 @@
 """Generate an interactive HTML comparison dashboard.
-this dashboard displays a web page that visualizes the performance of the best 
+The dashboard displays a web page that visualizes the performance of the best 
 TF-IDF and FinBERT models on the selected subset, using charts and tables to 
 highlight differences in metrics and confusion matrices. 
 The dashboard is designed to be visually appealing and easy to interpret,
- making it ideal for presentations or sharing with stakeholders."""
+making it ideal for presentations and visualizing differences between the two approaches."""
 
 import json
 import sys

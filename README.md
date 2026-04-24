@@ -114,7 +114,7 @@ Output is printed to the terminal. No files are generated — findings are used 
 Train and evaluate Logistic Regression, Linear SVM, and Random Forest with GridSearchCV on TF-IDF + handcrafted features:
 
 ```bash
-python pipelines/tf-idf/train_evaluate.py --subset sentences_75agree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_75agree
 ```
 
 This will:
@@ -124,33 +124,58 @@ This will:
 - Extract top Logistic Regression feature coefficients for interpretability
 - Save trained models and results
 
-Results saved to: `pipelines/tfidf_pipeline/results/sentences_75agree/`
-
-To run on all subsets:
-```bash
-python preprocessing/prepare_data.py --subset sentences_allagree
-python pipelines/tfidf_pipeline/train_evaluate.py --subset sentences_allagree
-
-python preprocessing/prepare_data.py --subset sentences_75agree
-python pipelines/tfidf_pipeline/train_evaluate.py --subset sentences_75agree
-
-python preprocessing/prepare_data.py --subset sentences_66agree
-python pipelines/tfidf_pipeline/train_evaluate.py --subset sentences_66agree
-
-python preprocessing/prepare_data.py --subset sentences_50agree
-python pipelines/tfidf_pipeline/train_evaluate.py --subset sentences_50agree
-```
+Results saved to: `pipelines/tf-idf_pipeline/results/sentences_75agree/`
 
 ### Analyze Baseline Results
 
-View summary metrics and generate confusion matrix charts:
+View summary metrics, best model, per-class F1, and generate confusion matrix charts:
 
 ```bash
-python pipelines/tf-idf/analyze_results.py --subset sentences_75agree --results-dir pipelines/tfidf_pipeline/results
+python pipelines/tf-idf_pipeline/analyze_results.py --subset sentences_75agree --results-dir pipelines/tf-idf_pipeline/results
 ```
 
-Confusion matrix PNGs saved to: `pipelines/tfidf_pipeline/results/sentences_75agree/charts/`
+Output includes:
+- Results summary table (accuracy, macro-F1, ROC-AUC per model)
+- Best model by macro-F1
+- Per-class F1 scores for each model
+- Confusion matrix heatmaps saved as PNGs
 
+Confusion matrix PNGs saved to: `pipelines/tf-idf_pipeline/results/sentences_75agree/charts/`
+
+To analyze other subsets:
+```bash
+python pipelines/tf-idf_pipeline/analyze_results.py --subset sentences_50agree --results-dir pipelines/tf-idf_pipeline/results
+python pipelines/tf-idf_pipeline/analyze_results.py --subset sentences_66agree --results-dir pipelines/tf-idf_pipeline/results
+python pipelines/tf-idf_pipeline/analyze_results.py --subset sentences_allagree --results-dir pipelines/tf-idf_pipeline/results
+```
+
+### Run on All Subsets
+
+```bash
+python preprocessing/prepare_data.py --subset sentences_allagree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_allagree
+
+python preprocessing/prepare_data.py --subset sentences_75agree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_75agree
+
+python preprocessing/prepare_data.py --subset sentences_66agree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_66agree
+
+python preprocessing/prepare_data.py --subset sentences_50agree
+python pipelines/tf-idf_pipeline/train_evaluate.py --subset sentences_50agree
+```
+
+---
+
+## FinBERT Model
+
+```bash
+python pipelines/finbert_pipeline/finbert_pipeline.py --subset sentences_75agree
+```
+
+Results saved to: `pipelines/finbert_pipeline/results/sentences_75agree/`
+
+---
 
 ## Per-Class Comparison
 
@@ -173,3 +198,4 @@ python analysis/generate_dashboard.py
 Open `analysis/dashboard_charts/dashboard.html` in any browser. No server required.
 
 ---
+

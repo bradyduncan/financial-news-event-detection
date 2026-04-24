@@ -1,4 +1,6 @@
-"""Comparison dashboard: TF-IDF vs FinBERT across all subsets."""
+"""Comparison dashboard: TF-IDF vs FinBERT across all subsets.
+Basically this performs comparision of two model and geerate side 
+by side comparison of two model on the basis of different metrics and confusion matrix."""
 
 import json
 import sys
@@ -25,7 +27,9 @@ LABEL_NAMES = ["negative", "neutral", "positive"]
 
 
 def load_results(base_dir, subset):
-    """Load results.json for a given pipeline and subset."""
+    """
+    Load results.json for a given pipeline and subset.
+    """
     json_path = base_dir / subset / "results.json"
     if not json_path.exists():
         return None
@@ -34,7 +38,9 @@ def load_results(base_dir, subset):
 
 
 def get_best_model(results):
-    """Get the model with the highest macro_f1 from results."""
+    """
+    Get the model with the highest macro_f1 from results.
+    """
     if results is None:
         return None
     best = None
@@ -48,7 +54,9 @@ def get_best_model(results):
 
 
 def collect_all_results():
-    """Collect best model results from both pipelines across all subsets."""
+    """
+    Collect best model results from both pipelines across all subsets.
+    """
     rows = []
     for subset in SUBSETS:
         tfidf_data = load_results(TFIDF_RESULTS, subset)
@@ -91,7 +99,9 @@ def collect_all_results():
 
 
 def plot_macro_f1_comparison(df):
-    """Bar chart comparing macro-F1 across subsets for both pipelines."""
+    """
+    Bar chart comparing macro-F1 across subsets for both pipelines.
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
     subsets = df["subset"].unique()
     x = np.arange(len(subsets))
@@ -125,7 +135,9 @@ def plot_macro_f1_comparison(df):
 
 
 def plot_accuracy_comparison(df):
-    """Bar chart comparing accuracy across subsets for both pipelines."""
+    """
+    Bar chart comparing accuracy across subsets for both pipelines.
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
     subsets = df["subset"].unique()
     x = np.arange(len(subsets))
@@ -159,7 +171,9 @@ def plot_accuracy_comparison(df):
 
 
 def plot_per_class_f1(df):
-    """Grouped bar chart showing per-class F1 for each pipeline and subset."""
+    """
+    Grouped bar chart showing per-class F1 for each pipeline and subset.
+    """
     subsets = df["subset"].unique()
 
     for subset in subsets:
@@ -196,7 +210,9 @@ def plot_per_class_f1(df):
 
 
 def plot_confusion_matrices(df):
-    """Side-by-side confusion matrix heatmaps for each subset."""
+    """
+    Side-by-side confusion matrix heatmaps for each subset.
+    """
     subsets = df["subset"].unique()
 
     for subset in subsets:
@@ -237,7 +253,9 @@ def plot_confusion_matrices(df):
 
 
 def plot_f1_trend_across_subsets(df):
-    """Line chart showing how macro-F1 changes across subsets (noise levels)."""
+    """
+    Line chart showing how macro-F1 changes across subsets (noise levels).
+    """
     fig, ax = plt.subplots(figsize=(10, 6))
 
     for pipeline in ["TF-IDF", "FinBERT"]:
@@ -294,7 +312,9 @@ def main():
     plot_confusion_matrices(df)
     plot_f1_trend_across_subsets(df)
 
-    """Save combined results table as CSV"""
+
+    # Save combined results table as CSV
+  
     df.drop(columns=["confusion_matrix"]).to_csv(
         OUTPUT_DIR / "combined_results.csv", index=False
     )
