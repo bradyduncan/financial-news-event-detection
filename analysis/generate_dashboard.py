@@ -1,4 +1,9 @@
-"""Generate an interactive HTML comparison dashboard."""
+"""Generate an interactive HTML comparison dashboard.
+this dashboard displays a web page that visualizes the performance of the best 
+TF-IDF and FinBERT models on the selected subset, using charts and tables to 
+highlight differences in metrics and confusion matrices. 
+The dashboard is designed to be visually appealing and easy to interpret,
+ making it ideal for presentations or sharing with stakeholders."""
 
 import json
 import sys
@@ -7,7 +12,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(REPO_ROOT))
 
-TFIDF_RESULTS = REPO_ROOT / "pipelines" / "tidf_pipeline" / "results"
+TFIDF_RESULTS = REPO_ROOT / "pipelines" / "tf-idf_pipeline" / "results"
 FINBERT_RESULTS = REPO_ROOT / "pipelines" / "finbert_pipeline" / "results"
 OUTPUT_DIR = REPO_ROOT / "analysis" / "dashboard_charts"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

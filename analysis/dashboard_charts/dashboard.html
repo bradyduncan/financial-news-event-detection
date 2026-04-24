@@ -159,28 +159,28 @@
     <div class="metric-card">
         <div class="label">Macro F1</div>
         <div class="values">
-            <div><div class="value tfidf-color">0.00</div><div class="model-label">TF-IDF</div></div>
+            <div><div class="value tfidf-color">0.77</div><div class="model-label">TF-IDF</div></div>
             <div><div class="value finbert-color">0.96</div><div class="model-label">FinBERT</div></div>
         </div>
     </div>
     <div class="metric-card">
         <div class="label">Accuracy</div>
         <div class="values">
-            <div><div class="value tfidf-color">0.00</div><div class="model-label">TF-IDF</div></div>
+            <div><div class="value tfidf-color">0.82</div><div class="model-label">TF-IDF</div></div>
             <div><div class="value finbert-color">0.97</div><div class="model-label">FinBERT</div></div>
         </div>
     </div>
     <div class="metric-card">
         <div class="label">ROC-AUC</div>
         <div class="values">
-            <div><div class="value tfidf-color">0.00</div><div class="model-label">TF-IDF</div></div>
+            <div><div class="value tfidf-color">0.91</div><div class="model-label">TF-IDF</div></div>
             <div><div class="value finbert-color">1.00</div><div class="model-label">FinBERT</div></div>
         </div>
     </div>
     <div class="metric-card">
         <div class="label">Best Model</div>
         <div class="values">
-            <div><div class="value tfidf-color" style="font-size:1rem;">N/A</div><div class="model-label">TF-IDF</div></div>
+            <div><div class="value tfidf-color" style="font-size:1rem;">logistic_regression</div><div class="model-label">TF-IDF</div></div>
             <div><div class="value finbert-color" style="font-size:1rem;">xgboost</div><div class="model-label">FinBERT</div></div>
         </div>
     </div>
@@ -211,12 +211,12 @@
     <h3>Confusion Matrices (proportions)</h3>
     <div class="cm-container">
         <div class="cm-box">
-            <h4 class="tfidf-color">TF-IDF (N/A)</h4>
+            <h4 class="tfidf-color">TF-IDF (logistic_regression)</h4>
             <table class="cm cm-tfidf">
                 <tr><th></th><th>Pred Neg</th><th>Pred Neu</th><th>Pred Pos</th></tr>
-                <tr><th>Neg</th><td class="cm-diag">0</td><td>0</td><td>0</td></tr>
-                <tr><th>Neu</th><td>0</td><td class="cm-diag">0</td><td>0</td></tr>
-                <tr><th>Pos</th><td>0</td><td>0</td><td class="cm-diag">0</td></tr>
+                <tr><th>Neg</th><td class="cm-diag">0.64</td><td>0.19</td><td>0.17</td></tr>
+                <tr><th>Neu</th><td>0.02</td><td class="cm-diag">0.88</td><td>0.1</td></tr>
+                <tr><th>Pos</th><td>0.06</td><td>0.17</td><td class="cm-diag">0.77</td></tr>
             </table>
         </div>
         <div class="cm-box">
@@ -236,8 +236,8 @@
     <h3>Key Insights</h3>
     <ul>
         <li>FinBERT outperforms TF-IDF across <span class="highlight">all metrics and all classes</span></li>
-        <li>Largest gap on <span class="highlight">negative class</span> — F1: 0.00 vs 0.95 (Δ 0.95)</li>
-        <li>Smallest gap on <span class="highlight">neutral class</span> — F1: 0.00 vs 0.98 (Δ 0.98)</li>
+        <li>Largest gap on <span class="highlight">negative class</span> — F1: 0.68 vs 0.95 (Δ 0.27)</li>
+        <li>Smallest gap on <span class="highlight">neutral class</span> — F1: 0.88 vs 0.98 (Δ 0.10)</li>
         <li>TF-IDF baseline offers <span class="highlight">full interpretability</span> through feature coefficients and trains in minutes on CPU</li>
         <li>FinBERT's contextual understanding captures sentiment from <span class="highlight">word combinations</span> that TF-IDF treats independently</li>
     </ul>
@@ -280,16 +280,16 @@ function makeBarChart(id, label, tData, fData) {
     });
 }
 
-makeBarChart('f1Chart', 'F1', [0, 0, 0], [0.9523809523809523, 0.980209545983702, 0.9464788732394366]);
-makeBarChart('precChart', 'Precision', [0, 0, 0], [0.9523809523809523, 0.9790697674418605, 0.9491525423728814]);
-makeBarChart('recChart', 'Recall', [0, 0, 0], [0.9523809523809523, 0.9813519813519813, 0.9438202247191011]);
+makeBarChart('f1Chart', 'F1', [0.6792452830188679, 0.8849765258215962, 0.738544474393531], [0.9523809523809523, 0.980209545983702, 0.9464788732394366]);
+makeBarChart('precChart', 'Precision', [0.72, 0.8912529550827423, 0.7098445595854922], [0.9523809523809523, 0.9790697674418605, 0.9491525423728814]);
+makeBarChart('recChart', 'Recall', [0.6428571428571429, 0.8787878787878788, 0.7696629213483146], [0.9523809523809523, 0.9813519813519813, 0.9438202247191011]);
 
 new Chart(document.getElementById('overallChart'), {
     type: 'bar',
     data: {
         labels: ['Macro F1', 'Accuracy', 'ROC-AUC'],
         datasets: [
-            { label: 'TF-IDF', data: [0.00, 0.00, 0.00], backgroundColor: tfidfColor, borderRadius: 6 },
+            { label: 'TF-IDF', data: [0.77, 0.82, 0.91], backgroundColor: tfidfColor, borderRadius: 6 },
             { label: 'FinBERT', data: [0.96, 0.97, 1.00], backgroundColor: finbertColor, borderRadius: 6 }
         ]
     },

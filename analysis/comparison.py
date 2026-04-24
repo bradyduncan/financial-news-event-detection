@@ -12,7 +12,7 @@ import seaborn as sns
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(REPO_ROOT))
 
-TFIDF_RESULTS = REPO_ROOT / "pipelines" / "tidf_pipeline" / "results"
+TFIDF_RESULTS = REPO_ROOT / "pipelines" / "tf-idf_pipeline" / "results"
 FINBERT_RESULTS = REPO_ROOT / "pipelines" / "finbert_pipeline" / "results"
 OUTPUT_DIR = REPO_ROOT / "analysis" / "dashboard_charts"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
