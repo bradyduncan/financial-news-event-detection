@@ -10,6 +10,10 @@
       "metrics": {
         "model": "logistic_regression",
         "accuracy": 0.9638205499276411,
+        "precision": 0.9546059283588285,
+        "recall": 0.9525664722293935,
+        "macro_precision": 0.9546059283588285,
+        "macro_recall": 0.9525664722293935,
         "macro_f1": 0.9535744004604864,
         "per_class": {
           "precision": [
@@ -90,6 +94,10 @@
       "metrics": {
         "model": "linear_svm",
         "accuracy": 0.959479015918958,
+        "precision": 0.944251987441151,
+        "recall": 0.9471399387129723,
+        "macro_precision": 0.944251987441151,
+        "macro_recall": 0.9471399387129723,
         "macro_f1": 0.9455877387220339,
         "per_class": {
           "precision": [
@@ -172,6 +180,10 @@
       "metrics": {
         "model": "xgboost",
         "accuracy": 0.9681620839363242,
+        "precision": 0.9602010873985648,
+        "recall": 0.9591843861506782,
+        "macro_precision": 0.9602010873985648,
+        "macro_recall": 0.9591843861506782,
         "macro_f1": 0.9596897905346969,
         "per_class": {
           "precision": [

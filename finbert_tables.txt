@@ -1,0 +1,28 @@
+﻿
+logistic_regression across all subsets
+            Subset Macro F1 ROC-AUC Precision Recall
+sentences_allagree     0.99    1.00      0.99   0.98
+ sentences_75agree     0.95    1.00      0.95   0.95
+ sentences_66agree     0.92    0.99      0.91   0.93
+ sentences_50agree     0.89    0.97      0.89   0.90
+
+linear_svm across all subsets
+            Subset Macro F1 ROC-AUC Precision Recall
+sentences_allagree     0.98              0.98   0.99
+ sentences_75agree     0.95              0.94   0.95
+ sentences_66agree     0.91              0.90   0.92
+ sentences_50agree     0.88              0.88   0.88
+
+xgboost across all subsets
+            Subset Macro F1 ROC-AUC Precision Recall
+sentences_allagree     0.98    1.00      0.98   0.98
+ sentences_75agree     0.96    1.00      0.96   0.96
+ sentences_66agree     0.91    0.99      0.91   0.93
+ sentences_50agree     0.89    0.98      0.88   0.89
+
+best_model across all subsets
+            Subset          Best Model Macro F1 ROC-AUC Precision Recall
+sentences_allagree logistic_regression     0.99    1.00      0.99   0.98
+ sentences_75agree             xgboost     0.96    1.00      0.96   0.96
+ sentences_66agree logistic_regression     0.92    0.99      0.91   0.93
+ sentences_50agree logistic_regression     0.89    0.97      0.89   0.90

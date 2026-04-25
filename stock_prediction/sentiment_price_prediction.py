@@ -9,7 +9,6 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
-import time
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(REPO_ROOT))
@@ -26,14 +25,11 @@ from pipelines.finbert_pipeline.embeddings import (
 from stock_prediction.evaluator import evaluate_sentiment_signal, save_metrics
 from stock_prediction.sentiment_price_regressor import run_regressor
 from transformers import AutoModel, AutoTokenizer
-import requests
-import trafilatura
 
 # Global vars
 DEFAULT_TICKERS_FILE = Path("data/stock_prediction/marketstack/tickers.txt")
 DEFAULT_OUTPUT_DIR = Path("data/stock_prediction/results")
 DEFAULT_CACHE_DIR = Path("data/finbert_embeddings")
-DEFAULT_TEXT_CACHE = Path("data/stock_prediction/gdelt/article_text_cache.json")
 
 # Possible references for each ticker
 TICKER_ALIASES = {
@@ -81,84 +77,6 @@ def load_tickers_from_file(path: Path) -> list[str]:
     return tickers
 
 
-def load_text_cache(path: Path) -> dict[str, str]:
-    if not path.exists():
-        return {}
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_text_cache(path: Path, cache: dict[str, str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(cache, f, indent=2)
-
-
-def fetch_article_text(url: str, timeout_seconds: float = 20.0) -> str:
-    if requests is None or trafilatura is None:
-        raise ImportError(
-            "trafilatura and requests are required for article text extraction. "
-            "Install with: pip install trafilatura requests"
-        )
-    downloaded = trafilatura.fetch_url(url)
-    if not downloaded:
-        # Fallback to requests for sites that block trafilatura's downloader.
-        headers = {"User-Agent": "sentiment-price/1.0"}
-        resp = requests.get(url, timeout=timeout_seconds, headers=headers)
-        resp.raise_for_status()
-        downloaded = resp.text
-    text = trafilatura.extract(
-        downloaded,
-        url=url,
-        include_comments=False,
-        include_tables=False,
-        favor_recall=True,
-    )
-    if not text:
-        return ""
-    return " ".join(text.split())
-
-
-def enrich_articles_with_text(
-    articles: pd.DataFrame,
-    cache_path: Path,
-    max_articles: int,
-    sleep_seconds: float,
-    min_text_chars: int,
-) -> pd.DataFrame:
-    cache = load_text_cache(cache_path)
-    urls = articles["url"].dropna().unique().tolist()
-    fetched = 0
-    updated_cache = False
-
-    for url in urls:
-        if not url or url in cache:
-            continue
-        if fetched >= max_articles:
-            break
-        try:
-            text = fetch_article_text(url)
-        except Exception:
-            text = ""
-        if text and len(text) >= min_text_chars:
-            cache[url] = text
-            updated_cache = True
-        fetched += 1
-        if sleep_seconds > 0:
-            time.sleep(sleep_seconds)
-
-    if updated_cache:
-        save_text_cache(cache_path, cache)
-
-    def choose_text(row: pd.Series) -> str:
-        cached = cache.get(row.get("url", ""), "")
-        return cached if cached else row.get("text", "")
-
-    out = articles.copy()
-    out["text"] = out.apply(choose_text, axis=1)
-    return out
-
-
 def parse_gdelt_time(value: str) -> datetime:
     value = value.strip()
     for fmt in ("%Y%m%d%H%M%S", "%Y%m%dT%H%M%SZ"):
@@ -179,7 +97,11 @@ def passes_keyword_filter(text: str, keywords: list[str]) -> bool:
 def news_to_rows(
     news: dict, tickers: Iterable[str], keywords: list[str] | None = None
 ) -> pd.DataFrame:
-    """Parse GDELT feed, requiring ticker symbol appears in the article title."""
+    """Parse GDELT feed, requiring ticker symbol appears in the article title.
+
+    This pipeline intentionally uses GDELT-provided metadata (headline text) and
+    does not scrape full article bodies from the open web.
+    """
     tickers_set = {t.upper() for t in tickers}
     rows = []
     feed = news.get("feed", [])
@@ -493,7 +415,7 @@ def run_classifier(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Train on Phrasebank and test on GDELT news with Marketstack prices."
+        description="Train on Phrasebank and test on GDELT headlines with Marketstack prices."
     )
     parser.add_argument(
         "--tickers", nargs="+", default=None,
@@ -538,38 +460,41 @@ def main() -> None:
         "--classify", action="store_true",
         help="Run binary direction classifier in addition to regression.",
     )
+    # Backwards-compatible flags from the earlier article-scraping variant of this pipeline.
+    # These are intentionally ignored now: we use GDELT headline text only.
     parser.add_argument(
         "--no-article-text",
         action="store_true",
-        help="Skip URL text extraction and use titles only.",
+        help="Deprecated (ignored): pipeline uses GDELT titles only.",
     )
     parser.add_argument(
         "--text-cache",
-        default=str(DEFAULT_TEXT_CACHE),
-        help="Path to JSON cache for extracted article text.",
+        default="",
+        help="Deprecated (ignored): no article scraping is performed.",
     )
     parser.add_argument(
         "--max-articles",
         type=int,
-        default=500,
-        help="Max number of new URLs to scrape per run.",
+        default=0,
+        help="Deprecated (ignored): no article scraping is performed.",
     )
     parser.add_argument(
         "--scrape-sleep",
         type=float,
-        default=0.5,
-        help="Seconds to sleep between URL fetches.",
+        default=0.0,
+        help="Deprecated (ignored): no article scraping is performed.",
     )
     parser.add_argument(
         "--min-text-chars",
         type=int,
-        default=200,
-        help="Minimum extracted text length to cache.",
+        default=0,
+        help="Deprecated (ignored): no article scraping is performed.",
     )
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR))
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
     news_path = Path(args.news_path) if args.news_path else Path("data/stock_prediction/gdelt/news.json")
     prices_dir = Path(args.prices_dir)
     cache_dir = Path(args.cache_dir)
@@ -579,15 +504,6 @@ def main() -> None:
     articles = news_to_rows(news, tickers, keywords=args.keywords)
     if articles.empty:
         raise ValueError("No articles found for the provided tickers.")
-
-    if not args.no_article_text:
-        articles = enrich_articles_with_text(
-            articles=articles,
-            cache_path=Path(args.text_cache),
-            max_articles=args.max_articles,
-            sleep_seconds=args.scrape_sleep,
-            min_text_chars=args.min_text_chars,
-        )
 
     prices = load_prices(prices_dir, tickers)
     benchmark_prices = load_benchmark_if_available(prices_dir, args.benchmark_ticker)
