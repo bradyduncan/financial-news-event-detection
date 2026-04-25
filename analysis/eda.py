@@ -1,4 +1,12 @@
-"""Exploratory Data Analysis for Financial PhraseBank."""
+"""Exploratory Data Analysis for Financial PhraseBank:
+This script is used for examining the dataser before any training for models.
+It examines the dataset from six angles: label distribution to understand class imbalance,
+sentence length statistics to find differences across sentiment classes, top words per class
+to identify discriminative vocabulary, financial keyword frequency to measure domain-specific
+term presence, number and percentage analysis to quantify numeric content across classes,
+and sample sentences for qualitative inspection. The findings from this analysis directly
+inform the handcrafted feature engineering and modeling decisions in the baseline pipeline.
+"""
 
 import sys
 from collections import Counter
@@ -9,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "preprocessing"))
 from preprocessing.load_data import load_phrasebank
 from preprocessing.preprocess_text import TOKEN_RE
 
+"""Gathering financial keywords for analysis:"""
+
 FINANCIAL_KEYWORDS = {
     "profit", "loss", "growth", "decline", "revenue", "earnings",
     "exceeded", "rose", "fell", "increased", "decreased", "gain",
@@ -17,8 +27,12 @@ FINANCIAL_KEYWORDS = {
 }
 
 
+
 def label_distribution(labels, label_names):
-    """Print count and percentage per class."""
+    """
+    Print count and percentage per class.
+    """
+
     counts = Counter(labels)
     total = len(labels)
     print("=" * 50)
@@ -32,9 +46,11 @@ def label_distribution(labels, label_names):
     print(f"  {'TOTAL':>10s}: {total:5d}")
     print()
 
-
 def sentence_length_stats(texts, labels, label_names):
-    """Print word-count statistics per class."""
+    """
+    Print word-count statistics per class.
+    """
+
     from collections import defaultdict
 
     lengths_by_class = defaultdict(list)
@@ -57,8 +73,12 @@ def sentence_length_stats(texts, labels, label_names):
     print()
 
 
+
 def top_words_per_class(texts, labels, label_names, top_n=15):
-    """Print the most common words per class after lowercasing."""
+    """
+    Print the most common words per class after lowercasing.
+    """
+
     from collections import defaultdict
 
     word_counts = defaultdict(Counter)
@@ -77,8 +97,13 @@ def top_words_per_class(texts, labels, label_names, top_n=15):
     print()
 
 
+
+
 def financial_keyword_analysis(texts, labels, label_names):
-    """Check how often financial keywords appear per class."""
+    """
+    Check how often financial keywords appear per class.
+    """
+
     from collections import defaultdict
 
     hits = defaultdict(lambda: Counter())
@@ -104,8 +129,12 @@ def financial_keyword_analysis(texts, labels, label_names):
     print()
 
 
+
 def number_percentage_analysis(texts, labels, label_names):
-    """Count sentences containing numbers or percentages per class."""
+    """
+    Count sentences containing numbers or percentages per class.
+    """
+
     import re
 
     num_re = re.compile(r"\d+(?:\.\d+)?%?")
@@ -138,8 +167,12 @@ def number_percentage_analysis(texts, labels, label_names):
     print()
 
 
+
 def sample_sentences(texts, labels, label_names, n=3):
-    """Print a few example sentences per class."""
+    """
+    Print a few example sentences per class.
+    """
+
     from collections import defaultdict
 
     examples = defaultdict(list)
